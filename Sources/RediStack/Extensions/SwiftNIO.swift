@@ -58,11 +58,13 @@ extension Channel {
         return self.pipeline.handler(type: RedisCommandHandler.self)
             .flatMap { handler in
                 let pubsubHandler = RedisPubSubHandler(replacing: handler)
-                return self.pipeline.addHandler(
+                let addHandler = self.pipeline.addHandler(
                     pubsubHandler,
                     name: "RediStack.PubSubHandler",
                     position: .before(handler)
                 )
+                _ = self.pipeline.removeHandler(handler)
+                return addHandler
             }
     }
 }

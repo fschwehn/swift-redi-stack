@@ -32,7 +32,7 @@ public struct RedisCommand {
     }
 }
 
-public class _RedisCommandHandlerCore {
+public class _RedisCommandHandlerCore: RemovableChannelHandler {
     /// FIFO queue of promises waiting to receive a response value from a sent command.
     internal var commandResponseQueue: CircularBuffer<EventLoopPromise<RESPValue>>
     internal var logger: Logger

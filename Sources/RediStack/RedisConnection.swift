@@ -175,12 +175,18 @@ public final class RedisConnection: RedisClient {
         return block()
     }
 
+    /// Wrappermethod for `channel.writeAndFlush` or `channel.write` depending on the `sendCommandsImmediately` state.
     private func writeToChannel<T>(_ data: T) -> EventLoopFuture<Void> {
         if self.sendCommandsImmediately {
             return self.channel.writeAndFlush(data)
         } else {
             return self.channel.write(data)
         }
+    }
+    
+    private func wrapOutgoingCommand(_ command: RedisCommand, forState state: ConnectionState? = nil) -> Any {
+        let connectionState = state ?? self.state
+        return connectionState == .subscribed ? RedisPubSubCommand.other(command) : command
     }
     
     internal enum ConnectionState {
@@ -218,7 +224,7 @@ extension RedisConnection {
             
             self.logger.debug("Sending command \"\(command)\"\(arguments.count > 0 ? " with \(arguments)" : "")")
             
-            return self.writeToChannel(redisCommand)
+            return self.writeToChannel(self.wrapOutgoingCommand(redisCommand))
                 .flatMap { return redisCommand.responsePromise.futureResult }
         }
     }
@@ -259,10 +265,12 @@ extension RedisConnection {
             return self.channel.closeFuture
         }
 
+        // because PubSub vs. not state matters for sending commands, we need to know what the previous state was
+        let oldState = self.state
         // we're now in a shutdown state, starting with the command queue.
         self.state = .shuttingDown
         
-        let notification = self.sendQuitCommand() // send "QUIT" so that all the responses are written out
+        let notification = self.sendQuitCommand(previous: oldState) // send "QUIT" so that all the responses are written out
             .flatMap { self.closeChannel() } // close the channel from our end
         
         notification.whenFailure { self.logger.error("Encountered error during close(): \($0)") }
@@ -277,7 +285,7 @@ extension RedisConnection {
     
     /// Bypasses everything for a normal command and explicitly just sends a "QUIT" command to Redis.
     /// - Note: If the command fails, the `NIO.EventLoopFuture` will still succeed - as it's not critical for the command to succeed.
-    private func sendQuitCommand() -> EventLoopFuture<Void> {
+    private func sendQuitCommand(previous: ConnectionState) -> EventLoopFuture<Void> {
         let promise = channel.eventLoop.makePromise(of: RESPValue.self)
         let command = RedisCommand(
             message: .array([RESPValue(bulk: "QUIT")]),
@@ -286,7 +294,7 @@ extension RedisConnection {
         
         logger.debug("Sending QUIT command.")
         
-        return channel.writeAndFlush(command) // write the command
+        return channel.writeAndFlush(self.wrapOutgoingCommand(command, forState: previous)) // write the command
             .flatMap { promise.futureResult } // chain the callback to the response's
             .map { _ in () } // ignore the result's value
             .recover { _ in () } // if there's an error, just return to void
@@ -314,5 +322,37 @@ extension RedisConnection {
                 default: return self.eventLoop.makeFailedFuture(e)
                 }
             }
+    }
+}
+
+// MARK: Subscribing to a PubSub Channel
+
+extension RedisConnection {
+    @discardableResult
+    public func subscribe(
+        to channels: Set<String>,
+        subscriptionHandler handler: @escaping RedisPubSubMessageCallback
+    ) -> EventLoopFuture<Void> {
+        return self.requiringConnectedState {
+            guard self.state == .subscribed else {
+                return self.switchToSubscribedMode()
+                    .flatMap { self.subscribe(to: channels, subscriptionHandler: handler) }
+            }
+            
+            let command = self.makeRedisCommand(
+                forKeyword: "SUBSCRIBE",
+                arguments: channels.map({ $0.convertedToRESPValue() })
+            )
+            return self.writeToChannel(RedisPubSubCommand.subscription(command, keys: channels, callback: handler))
+                .flatMap { return command.responsePromise.futureResult }
+                .map { _ in () }
+        }
+    }
+    
+    private func switchToSubscribedMode() -> EventLoopFuture<Void> {
+        let task = self.channel.insertRedisPubSubHandler()
+        task.whenSuccess { self.state = .subscribed }
+        
+        return task
     }
 }

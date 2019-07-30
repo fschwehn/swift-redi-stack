@@ -26,13 +26,15 @@ final class PubSubCommandsTests: RediStackIntegrationTestCase {
         let sentMessage = "Hello from Redis!"
         
         #warning("TODO")
-//        _ = try? subscriber.subscribe(to: [#function]) { channel, message in
-//            XCTAssertEqual(channel, #function)
-//            XCTAssertEqual(message.string, sentMessage)
-//            futureExpectation.fulfill()
-//        }.wait()
+        let subscriberCount = try subscriber.subscribe(to: [#function]) { channel, message in
+            XCTAssertEqual(channel, #function)
+            XCTAssertEqual(message.string, sentMessage)
+            futureExpectation.fulfill()
+        }
+        .flatMap { self.connection.publish(message: sentMessage, toChannel: #function) }
+        .wait()
         
-        _ = try? self.connection.publish(message: sentMessage, toChannel: #function).wait()
-        waitForExpectations(timeout: 1)
+        XCTAssertEqual(subscriberCount, 1)
+        waitForExpectations(timeout: 5)
     }
 }

@@ -83,16 +83,21 @@ extension RedisPubSubHandler: ChannelInboundHandler {
         }
         
         guard
-            let subscriptionCount = self.handlePubSubMessage(array[2], from: channel, type: messageType),
+            let subscriptionCount = self.handlePubSubMessage(array[2], from: channel, type: messageType, in: context),
             subscriptionCount == 0 // if there are still active subscriptions, we don't need to do anything else
         else { return }
         
         #warning("TODO: Close PubSub mode")
     }
     
-    private func handlePubSubMessage(_ message: RESPValue, from channel: String, type: PubSubMessageType) -> Int? {
+    private func handlePubSubMessage(
+        _ message: RESPValue,
+        from channel: String,
+        type: PubSubMessageType,
+        in context: ChannelHandlerContext
+    ) -> Int? {
         switch type {
-        // we're just changing subscriptions, so update our subscription count
+        // we're just changing subscriptions, so update our subscription count and resolve the promise in the command queue
         case .subscriptionChange:
             guard let subCount = message.int else {
                 self.logger.critical(
@@ -101,6 +106,7 @@ extension RedisPubSubHandler: ChannelInboundHandler {
                 )
                 preconditionFailure("Failed to get the subscription count from a PubSub response.")
             }
+            self.handleRedisResponse(message) // let the base implementation handle resolving the command queue promise
             return subCount
             
         // we have an actual message to send to the subscribers,
@@ -168,14 +174,7 @@ extension RedisPubSubHandler: ChannelOutboundHandler {
         let outgoing = self.unwrapOutboundIn(data)
         let command = outgoing.redisCommand
         
-        // for actual PubSub commands (SUBSCRIBE, UNSUBSCRIBE, etc.) we don't need to store the `responsePromise` as
-        // the responses come back as the special PubSub format, so we just mimic an "OK" response from Redis and resolve
-        let resolvePromise = {
-            let response = "OK" // mimics a standard notification response from Redis
-            var buffer = context.channel.allocator.buffer(capacity: response.count)
-            buffer.writeString(response)
-            command.responsePromise.succeed(RESPValue.simpleString(buffer))
-        }
+//        #error("Need to store the responsePromise for a subscription/")
         
         #warning("TODO: If subscribing to the exact same pattern / channel isn't allowed, probably want to handle it here")
         switch outgoing {
@@ -188,16 +187,14 @@ extension RedisPubSubHandler: ChannelOutboundHandler {
                     self.callbackMap[key] = [callback]
                 }
             }
-            resolvePromise()
             
         case let .unsubscribe(_, keys):
             keys.forEach { self.callbackMap.removeValue(forKey: $0) }
-            resolvePromise()
             
-        case .other:
-            self.commandResponseQueue.append(command.responsePromise)
+        case .other: break
         }
-        
+
+        self.commandResponseQueue.append(command.responsePromise)
         context.write(self.wrapOutboundOut(command.message), promise: promise)
     }
 }
