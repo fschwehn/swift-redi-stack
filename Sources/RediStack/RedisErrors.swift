@@ -18,6 +18,8 @@ import protocol Foundation.LocalizedError
 public enum RedisClientError: LocalizedError {
     /// The connection is closed, but was used to try and send a command to Redis.
     case connectionClosed
+    /// The connection was used to subscribe to a Redis PubSub channel, then was later used to send a command.
+    case connectionInSubscribeMode
     /// Conversion from `RESPValue` to the specified type failed.
     /// If this is ever triggered, please capture the original `RESPValue` value.
     case failedRESPConversion(to: Any.Type)
@@ -29,6 +31,7 @@ public enum RedisClientError: LocalizedError {
         let message: String
         switch self {
         case .connectionClosed: message = "Connection was closed while trying to send command."
+        case .connectionInSubscribeMode: message = "Connection subscribed to a PubSub channel was used for other purposes."
         case let .failedRESPConversion(type): message = "Failed to convert RESP to \(type)"
         case let .assertionFailure(text): message = text
         }

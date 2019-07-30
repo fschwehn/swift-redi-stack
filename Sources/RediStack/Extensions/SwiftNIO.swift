@@ -53,6 +53,18 @@ extension Channel {
             on: self.eventLoop
         )
     }
+    
+    public func insertRedisPubSubHandler() -> EventLoopFuture<Void> {
+        return self.pipeline.handler(type: RedisCommandHandler.self)
+            .flatMap { handler in
+                let pubsubHandler = RedisPubSubHandler(replacing: handler)
+                return self.pipeline.addHandler(
+                    pubsubHandler,
+                    name: "RediStack.PubSubHandler",
+                    position: .before(handler)
+                )
+            }
+    }
 }
 extension ClientBootstrap {
     /// Makes a new `ClientBootstrap` instance with a baseline Redis `Channel` pipeline

@@ -107,7 +107,7 @@ public final class RedisConnection: RedisClient {
     public var isConnected: Bool {
         // `Channel.isActive` is set to false before the `closeFuture` resolves in cases where the channel might be
         // closed, or closing, before our state has been updated
-        return self.channel.isActive && self.state == .open
+        return self.channel.isActive && self.state.isOpen
     }
     /// Controls the behavior of when sending commands over this connection. The default is `true.
     ///
@@ -146,7 +146,7 @@ public final class RedisConnection: RedisClient {
         self.logger = logger
         
         self.logger[metadataKey: loggingKeyID] = "\(UUID())"
-        self._state = .open
+        self._state = .readyForCommands
         self.logger.debug("Connection created.")
         RedisMetrics.activeConnectionCount += 1
         RedisMetrics.totalConnectionCount.increment()
@@ -156,7 +156,7 @@ public final class RedisConnection: RedisClient {
         self.channel.closeFuture.whenSuccess {
             // if our state is still open, that means we didn't cause the closeFuture to resolve.
             // update state, metrics, and logging
-            guard self.state == .open else { return }
+            guard self.state.isOpen else { return }
             
             self.state = .closed
             self.logger.warning("Channel was closed unexpectedly.")
@@ -164,10 +164,33 @@ public final class RedisConnection: RedisClient {
         }
     }
     
+    /// Wrapper method for when operations require `self.isConnected` to be true.
+    private func requiringConnectedState<T>(_ block: () -> EventLoopFuture<T>) -> EventLoopFuture<T> {
+        guard self.isConnected else {
+            let error = RedisClientError.connectionClosed
+            self.logger.warning("\(error.localizedDescription)")
+            return self.channel.eventLoop.makeFailedFuture(error)
+        }
+        
+        return block()
+    }
+
+    private func writeToChannel<T>(_ data: T) -> EventLoopFuture<Void> {
+        if self.sendCommandsImmediately {
+            return self.channel.writeAndFlush(data)
+        } else {
+            return self.channel.write(data)
+        }
+    }
+    
     internal enum ConnectionState {
-        case open
+        case readyForCommands
+        case subscribed
         case shuttingDown
         case closed
+        
+        // if the connection is `.readyForCommands` or is in `.subscribed` mode, then it is an open connection.
+        var isOpen: Bool { return self == .readyForCommands || self == .subscribed }
     }
 }
 
@@ -182,20 +205,29 @@ extension RedisConnection {
     /// - Returns: A `NIO.EventLoopFuture` that resolves with the command's result stored in a `RESPValue`.
     ///     If a `RedisError` is returned, the future will be failed instead.
     public func send(command: String, with arguments: [RESPValue]) -> EventLoopFuture<RESPValue> {
-        guard self.isConnected else {
-            let error = RedisClientError.connectionClosed
-            logger.warning("\(error.localizedDescription)")
-            return self.channel.eventLoop.makeFailedFuture(error)
+        return self.requiringConnectedState {
+            // only send commands if the connection able to do so
+            // PING is the only exception that we need to catpure here, per PubSub documentation
+            guard self.state == .readyForCommands || command == "PING" else {
+                let error = RedisClientError.connectionInSubscribeMode
+                self.logger.warning("\(error.localizedDescription)")
+                return self.channel.eventLoop.makeFailedFuture(error)
+            }
+            
+            let redisCommand = self.makeRedisCommand(forKeyword: command, arguments: arguments)
+            
+            self.logger.debug("Sending command \"\(command)\"\(arguments.count > 0 ? " with \(arguments)" : "")")
+            
+            return self.writeToChannel(redisCommand)
+                .flatMap { return redisCommand.responsePromise.futureResult }
         }
+    }
         
-        var message: [RESPValue] = [.init(bulk: command)]
-        message.append(contentsOf: arguments)
+    private func makeRedisCommand(forKeyword keyword: String, arguments args: [RESPValue]) -> RedisCommand {
+        var message: [RESPValue] = [.init(bulk: keyword)]
+        message.append(contentsOf: args)
         
-        let promise = channel.eventLoop.makePromise(of: RESPValue.self)
-        let command = RedisCommand(
-            message: .array(message),
-            responsePromise: promise
-        )
+        let promise = self.channel.eventLoop.makePromise(of: RESPValue.self)
         
         let startTime = DispatchTime.now().uptimeNanoseconds
         promise.futureResult.whenComplete { result in
@@ -207,13 +239,7 @@ extension RedisConnection {
             self.logger.error("\(error.localizedDescription)")
         }
         
-        self.logger.debug("Sending command \"\(command)\"\(arguments.count > 0 ? " with \(arguments)" : "")")
-        
-        if self.sendCommandsImmediately {
-            return channel.writeAndFlush(command).flatMap { promise.futureResult }
-        } else {
-            return channel.write(command).flatMap { promise.futureResult }
-        }
+        return RedisCommand(message: .array(message), responsePromise: promise)
     }
 }
 
