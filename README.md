@@ -3,6 +3,7 @@
 
 <p>
     <a href="https://gitlab.com/Mordil/swift-redis-nio-client/pipelines"><img src="https://gitlab.com/Mordil/swift-redis-nio-client/badges/master/pipeline.svg" alt="Build Status"></a>
+    <a href="https://codecov.io/gl/Mordil/swift-redi-stack"><img src="https://codecov.io/gl/Mordil/swift-redi-stack/branch/master/graph/badge.svg" /></a>
     <a href="https://github.com/swift-server/sswg/blob/master/process/incubation.md#sandbox-level"><img src="https://img.shields.io/badge/sswg-sandbox-lightgrey.svg" alt="SSWG Maturity"></a>
     <a href="https://gitlab.com/Mordil/swift-redi-stack/blob/master/LICENSE.txt"><img src="https://img.shields.io/badge/License-Apache%202.0-yellow.svg" alt="Apache 2 License"></a>
     <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.0+-orange.svg" alt="Swift 5.0+"></a>
