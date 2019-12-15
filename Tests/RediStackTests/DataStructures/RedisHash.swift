@@ -15,8 +15,10 @@
 @testable import RediStack
 import XCTest
 
-final class DataStructureTests: XCTestCase {
+final class RedisHashTests: XCTestCase {
 
+    // @TODO: cleanup
+    
     func test_RedisHash() throws {
         let hash: RedisHash = [
             "name": "joe",

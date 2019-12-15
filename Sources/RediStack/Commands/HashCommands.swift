@@ -239,6 +239,23 @@ extension RedisClient {
         return send(command: "HMSET", with: args)
             .map { _ in () }
     }
+    
+    @inlinable
+    public func hmset(
+        _ fields: [String: RESPValueConvertible],
+        in key: String
+    ) -> EventLoopFuture<Void> {
+        assert(fields.count > 0, "At least 1 key-value pair should be specified")
+
+        var args: [RESPValue] = [.init(bulk: key)]
+        args.add(contentsOf: fields, overestimatedCountBeingAdded: fields.count * 2) { (array, element) in
+            array.append(.init(bulk: element.key))
+            array.append(element.value.convertedToRESPValue())
+        }
+        
+        return send(command: "HMSET", with: args)
+            .map { _ in () }
+    }
 }
 
 // MARK: Get
