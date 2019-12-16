@@ -83,7 +83,6 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
     }
 
     func test_xread() throws {
-        
         // read empty stream
         XCTAssertEqual(try connection.xread(from: ["empty": "$"]).wait(), RESPValue.null)
         XCTAssertEqual(try connection.xread(from: ["empty": "$"]).wait(), RedisXREADResponse())
@@ -107,6 +106,38 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
             ]
         ]
         
+        XCTAssertEqual(response, expected)
+    }
+    
+    func test_xreadgroup() throws {
+        let group0 = "g0"
+        let consumer0 = "c0"
+        let stream0 = "s0"
+        let stream1 = "s1"
+        let id1 = "0-1"
+        let id2 = "0-2"
+        let msg_s0_1: RedisHash = ["a": "1"]
+        let msg_s1_1: RedisHash = ["b": "2"]
+        let msg_s1_2: RedisHash = ["c": "3"]
+        
+        XCTAssertTrue(try connection.xgroupCreate(stream0, group: group0, createStreamIfNotExists: true).wait())
+        XCTAssertTrue(try connection.xgroupCreate(stream1, group: group0, createStreamIfNotExists: true).wait())
+        
+        XCTAssertEqual(try connection.xadd(msg_s0_1, to: stream0, id: id1).wait(), id1)
+        XCTAssertEqual(try connection.xadd(msg_s1_1, to: stream1, id: id1).wait(), id1)
+        XCTAssertEqual(try connection.xadd(msg_s1_2, to: stream1, id: id2).wait(), id2)
+        
+        let response: RedisXREADResponse = try connection.xreadgroup(group: group0, consumer: consumer0, from: [stream0: ">", stream1: ">"]).wait()
+        let expected: RedisXREADResponse = [
+            stream0: [
+                .init(id: id1, hash: msg_s0_1)
+            ],
+            stream1: [
+                .init(id: id1, hash: msg_s1_1),
+                .init(id: id2, hash: msg_s1_2),
+            ],
+        ]
+    
         XCTAssertEqual(response, expected)
     }
     

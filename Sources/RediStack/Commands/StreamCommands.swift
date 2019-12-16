@@ -28,7 +28,7 @@ extension RedisClient {
     /// - Returns: The ID of the added entry
     @inlinable
     public func xadd(
-        _ entry: RedisHash,
+        _ message: RedisHash,
         to key: String,
         id: String = "*"
     ) -> EventLoopFuture<String> {
@@ -36,7 +36,7 @@ extension RedisClient {
             .init(bulk: key),
             .init(bulk: id),
         ]
-            + entry.flattened()
+            + message.flattened()
         
         return send(command: "XADD", with: args)
             .convertFromRESPValue()
@@ -149,6 +149,8 @@ extension RedisClient {
     ) -> EventLoopFuture<Value> {
         var args = [RESPValue]()
         
+        args.reserveCapacity(3 + streamPositions.count * 2)
+        
         if let count = count {
             args += [.init(bulk: "COUNT"), .integer(count)]
         }
@@ -171,7 +173,44 @@ extension RedisClient {
             .convertFromRESPValue()
     }
     
-//    XREADGROUP
+    @inlinable
+    public func xreadgroup<Value: RESPValueConvertible>(
+        group: String,
+        consumer: String,
+        from streamPositions: [String : String],
+        maxCount count: Int? = nil,
+        blockFor milliseconds: Int? = nil
+    ) -> EventLoopFuture<Value> {
+        var args: [RESPValue] = [
+            .init(bulk: "GROUP"),
+            .init(bulk: group),
+            .init(bulk: consumer),
+        ]
+        
+        args.reserveCapacity(6 + streamPositions.count * 2)
+        
+        if let count = count {
+            args += [.init(bulk: "COUNT"), .integer(count)]
+        }
+        
+        if let milliseconds = milliseconds {
+            args += [.init(bulk: "BLOCK"), .integer(milliseconds)]
+        }
+    
+        args.append(.init(bulk: "STREAMS"))
+        
+        for key in streamPositions.keys {
+            args.append(.init(bulk: key))
+        }
+        
+        for id in streamPositions.values {
+            args.append(.init(bulk: id))
+        }
+        
+        return send(command: "XREADGROUP", with: args)
+            .convertFromRESPValue()
+    }
+    
 //    XREVRANGE
 //    XTRIM
     

@@ -49,6 +49,15 @@ extension RedisXREADResponse: RESPValueConvertible {
     public func convertedToRESPValue() -> RESPValue {
         return .null
     }
+    
+    subscript(key: String) -> [RedisStreamMessage]? {
+        get {
+            return storage[key]
+        }
+        set(newValue) {
+            storage[key] = newValue
+        }
+    }
 }
 
 extension RedisXREADResponse: Equatable {}
