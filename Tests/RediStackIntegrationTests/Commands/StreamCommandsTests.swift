@@ -47,6 +47,40 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertEqual(count, 2)
         XCTAssertEqual(try connection.xdel("empty", ids: [id1]).wait(), 0)
     }
+    
+    func test_xgroupCreate() throws {
+        let stream = "s"
+        let group = "g"
+        
+        XCTAssertThrowsError(try connection.xgroupCreate(stream, group: group).wait(), "Should fail because stream does not exist")
+        XCTAssertTrue(try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait())
+        XCTAssertThrowsError(try connection.xgroupCreate(stream, group: group).wait(), "Same group should not be created twice")
+    }
+    
+    func test_xgroupSetId() throws {
+        let stream = "s"
+        let group = "g"
+        
+        XCTAssertTrue(try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait())
+        XCTAssertTrue(try connection.xgroupSetId(stream, group: group, id: "0-1").wait())
+    }
+    
+    func test_xgroupDestroy() throws {
+        let stream = "s"
+        let group = "g"
+        
+        XCTAssertTrue(try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait())
+        XCTAssertEqual(try connection.xgroupDestroy(stream, group: group).wait(), 1)
+        XCTAssertEqual(try connection.xgroupDestroy(stream, group: group).wait(), 0, "Should only return 1 if group did still exist")
+    }
+    
+    func test_xgroupDelConsumer() throws {
+        XCTFail("Not sure how to test this")
+    }
+    
+    func test_help() throws {
+        XCTAssert(try connection.xgroupHelp().wait().count > 1)
+    }
 
     func test_xread() throws {
         

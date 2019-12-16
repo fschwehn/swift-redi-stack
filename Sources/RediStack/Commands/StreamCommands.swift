@@ -59,8 +59,74 @@ extension RedisClient {
             .convertFromRESPValue()
     }
     
-//    XGROUP
-//    XINFO
+    // MARK: Groups
+    
+    @inlinable
+    public func xgroupCreate(_ key: String, group: String, id: String = "0", createStreamIfNotExists: Bool = false) -> EventLoopFuture<Bool> {
+        var args: [RESPValue] = [
+            .init(bulk:"CREATE"),
+            .init(bulk:key),
+            .init(bulk:group),
+            .init(bulk:id)
+        ]
+        
+        if createStreamIfNotExists {
+            args.append(.init(bulk: "MKSTREAM"))
+        }
+        
+        return send(command: "XGROUP", with: args)
+            .convertFromRESPValue(to: String.self)
+            .map { $0 == "OK" }
+    }
+    
+    @inlinable
+    public func xgroupSetId(_ key: String, group: String, id: String) -> EventLoopFuture<Bool> {
+        let args: [RESPValue] = [
+            .init(bulk:"SETID"),
+            .init(bulk:key),
+            .init(bulk:group),
+            .init(bulk:id)
+        ]
+        
+        return send(command: "XGROUP", with: args)
+            .convertFromRESPValue(to: String.self)
+            .map { $0 == "OK" }
+    }
+    
+    @inlinable
+    public func xgroupDestroy(_ key: String, group: String) -> EventLoopFuture<Int> {
+        let args: [RESPValue] = [
+            .init(bulk:"DESTROY"),
+            .init(bulk:key),
+            .init(bulk:group)
+        ]
+        
+        return send(command: "XGROUP", with: args)
+            .convertFromRESPValue(to: Int.self)
+    }
+    
+    @inlinable
+    public func xgroupDelConsumer(_ key: String, group: String, consumer: String) -> EventLoopFuture<Int> {
+        let args: [RESPValue] = [
+            .init(bulk:"DELCONSUMER"),
+            .init(bulk:key),
+            .init(bulk:group),
+            .init(bulk:consumer)
+        ]
+        
+        return send(command: "XGROUP", with: args)
+            .convertFromRESPValue(to: Int.self)
+    }
+    
+    @inlinable
+    public func xgroupHelp() -> EventLoopFuture<[String]> {
+        let args: [RESPValue] = [
+            .init(bulk:"HELP")
+        ]
+        
+        return send(command: "XGROUP", with: args)
+            .convertFromRESPValue()
+    }
     
     /// Returns the number of entries inside a stream
     /// - Parameter key: The stream's key
@@ -74,10 +140,6 @@ extension RedisClient {
     
 //    XPENDING
 //    XRANGE
-    
-    
-//    XREAD
-    // XREAD [COUNT count] [BLOCK milliseconds] STREAMS key [key ...] ID [ID ...]
     
     @inlinable
     public func xread<Value: RESPValueConvertible>(
