@@ -16,7 +16,18 @@ import NIO
 
 extension RedisClient {
     
-    //    XACK
+    @inlinable
+    public func xack(_ key: String, group: String, ids: [String]) -> EventLoopFuture<Int> {
+        var args: [RESPValue] = [
+            .init(bulk:key),
+            .init(bulk:group),
+        ]
+        
+        args += ids.map(RESPValue.init)
+        
+        return send(command: "XACK", with: args)
+            .convertFromRESPValue()
+    }
     
     ///
     /// Appends the specified stream entry to the stream at the specified key.

@@ -114,8 +114,6 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         let consumer0 = "c0"
         let stream0 = "s0"
         let stream1 = "s1"
-        let id1 = "0-1"
-        let id2 = "0-2"
         let msg_s0_1: RedisHash = ["a": "1"]
         let msg_s1_1: RedisHash = ["b": "2"]
         let msg_s1_2: RedisHash = ["c": "3"]
@@ -123,22 +121,39 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertTrue(try connection.xgroupCreate(stream0, group: group0, createStreamIfNotExists: true).wait())
         XCTAssertTrue(try connection.xgroupCreate(stream1, group: group0, createStreamIfNotExists: true).wait())
         
-        XCTAssertEqual(try connection.xadd(msg_s0_1, to: stream0, id: id1).wait(), id1)
-        XCTAssertEqual(try connection.xadd(msg_s1_1, to: stream1, id: id1).wait(), id1)
-        XCTAssertEqual(try connection.xadd(msg_s1_2, to: stream1, id: id2).wait(), id2)
+        let id_s0_1 = try connection.xadd(msg_s0_1, to: stream0).wait()
+        let id_s1_1 = try connection.xadd(msg_s1_1, to: stream1).wait()
+        let id_s1_2 = try connection.xadd(msg_s1_2, to: stream1).wait()
         
         let response: RedisXREADResponse = try connection.xreadgroup(group: group0, consumer: consumer0, from: [stream0: ">", stream1: ">"]).wait()
         let expected: RedisXREADResponse = [
             stream0: [
-                .init(id: id1, hash: msg_s0_1)
+                .init(id: id_s0_1, hash: msg_s0_1)
             ],
             stream1: [
-                .init(id: id1, hash: msg_s1_1),
-                .init(id: id2, hash: msg_s1_2),
+                .init(id: id_s1_1, hash: msg_s1_1),
+                .init(id: id_s1_2, hash: msg_s1_2),
             ],
         ]
     
         XCTAssertEqual(response, expected)
+    }
+
+    func test_xack() throws {
+        let group = "g0"
+        let consumer = "c0"
+        let stream = "s0"
+        let msg1: RedisHash = ["a": "1"]
+        let msg2: RedisHash = ["b": "2"]
+        
+        XCTAssertTrue(try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait())
+
+        let id1 = try connection.xadd(msg1, to: stream).wait()
+        let id2 = try connection.xadd(msg2, to: stream).wait()
+        
+        let _: RedisXREADResponse = try connection.xreadgroup(group: group, consumer: consumer, from: [stream: ">"]).wait()
+        
+        XCTAssertEqual(try connection.xack(stream, group: group, ids: [id1, id2]).wait(), 2)
     }
     
 }
