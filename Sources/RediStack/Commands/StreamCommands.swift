@@ -150,7 +150,42 @@ extension RedisClient {
     }
     
 //    XPENDING
-//    XRANGE
+    
+    @inlinable
+    public func xrange<Value: RESPValueConvertible>(
+        _ key: String,
+        start: String,
+        end: String,
+        count: Int? = nil,
+        reverse: Bool = false
+    ) -> EventLoopFuture<Value> {
+        var args: [RESPValue] = [
+            .init(bulk: key),
+            .init(bulk: start),
+            .init(bulk: end),
+        ]
+        
+        if let count = count {
+            args.append(.init(bulk: "COUNT"))
+            args.append(.init(bulk: count))
+        }
+        
+        let command = reverse ? "XREVRANGE" : "XRANGE"
+        
+        return send(command: command, with: args)
+            .convertFromRESPValue()
+    }
+    
+    @inlinable
+    public func xrevrange<Value: RESPValueConvertible>(
+        _ key: String,
+        start: String,
+        end: String,
+        count: Int? = nil,
+        reverse: Bool = false
+    ) -> EventLoopFuture<Value> {
+        return xrange(key, start: start, end: end, count: count, reverse: true)
+    }
     
     @inlinable
     public func xread<Value: RESPValueConvertible>(
@@ -222,7 +257,6 @@ extension RedisClient {
             .convertFromRESPValue()
     }
     
-//    XREVRANGE
 //    XTRIM
     
 }

@@ -156,4 +156,25 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertEqual(try connection.xack(stream, group: group, ids: [id1, id2]).wait(), 2)
     }
     
+    func test_xrange() throws {
+        let stream = "s0"
+        var messages = [RedisHash]()
+        var ids = [String]()
+        var results = [RedisStreamMessage]()
+        
+        for i in 0 ... 3 {
+            let msg = RedisHash(dictionaryLiteral: ("a", i))
+            let id = try connection.xadd(msg, to: stream).wait()
+            messages.append(msg)
+            ids.append(id)
+            results.append(.init(id: id, hash: msg))
+        }
+        
+        XCTAssertEqual(try connection.xrange(stream, start: ids[0], end: ids[3]).wait(), results)
+        XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[2]).wait(), [results[1], results[2]])
+        XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[2], reverse: true).wait(), [RedisStreamMessage]())
+        XCTAssertEqual(try connection.xrange(stream, start: ids[2], end: ids[1], reverse: true).wait(), [results[2], results[1]])
+        XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[3], count: 1).wait(), [results[1]])
+    }
+    
 }
