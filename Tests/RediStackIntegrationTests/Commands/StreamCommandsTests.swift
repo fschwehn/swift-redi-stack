@@ -177,4 +177,17 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[3], count: 1).wait(), [results[1]])
     }
     
+    func test_xtrim() throws {
+        let stream = "s0"
+        
+        for i in 1 ... 1200 {
+            _ = try connection.xadd(RedisHash(dictionaryLiteral: ("a", i)), to: stream).wait()
+        }
+        
+        XCTAssertEqual(try connection.xlen(stream).wait(), 1200)
+        XCTAssertTrue(try connection.xtrim(stream, maxLength: 1000).wait() >= 0)
+        _ = try connection.xtrim(stream, maxLength: 42, exact: true).wait()
+        XCTAssertEqual(try connection.xlen(stream).wait(), 42)
+    }
+    
 }

@@ -257,6 +257,25 @@ extension RedisClient {
             .convertFromRESPValue()
     }
     
-//    XTRIM
+    @inlinable
+    public func xtrim(
+        _ key: String,
+        maxLength: Int,
+        exact: Bool = false
+    ) -> EventLoopFuture<Int> {
+        var args = [RESPValue]()
+        args.reserveCapacity(4)
+        args.append(.init(bulk: key))
+        args.append(.init(bulk: "MAXLEN"))
+        
+        if !exact {
+            args.append(.init(bulk: "~"))
+        }
+        
+        args.append(.init(bulk: maxLength))
+        
+        return send(command: "XTRIM", with: args)
+            .convertFromRESPValue()
+    }
     
 }
