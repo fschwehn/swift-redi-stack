@@ -12,12 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct RedisStreamMessage {
+public struct RedisStreamEntry {
     public let id: String
     public let hash: RedisHash
 }
 
-extension RedisStreamMessage: RESPValueConvertible {
+extension RedisStreamEntry: RESPValueConvertible {
     public init?(fromRESP value: RESPValue) {
         guard case .array(let list) = value else { return nil }
         guard list.count == 2 else { return nil }
@@ -36,4 +36,4 @@ extension RedisStreamMessage: RESPValueConvertible {
     }
 }
 
-extension RedisStreamMessage: Equatable {}
+extension RedisStreamEntry: Equatable {}

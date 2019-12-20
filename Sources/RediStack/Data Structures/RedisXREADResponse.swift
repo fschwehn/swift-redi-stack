@@ -14,9 +14,9 @@
 
 public struct RedisXREADResponse: ExpressibleByDictionaryLiteral {
     
-    internal var storage = [String : [RedisStreamMessage]]()
+    internal var storage = [String : [RedisStreamEntry]]()
     
-    public init(dictionaryLiteral elements: (String, [RedisStreamMessage])...) {
+    public init(dictionaryLiteral elements: (String, [RedisStreamEntry])...) {
         for element in elements {
             storage[element.0] = element.1
         }
@@ -37,9 +37,9 @@ extension RedisXREADResponse: RESPValueConvertible {
                 guard case .array(let list) = stream else { return nil }
                 guard list.count == 2 else { return nil }
                 guard let key = String(fromRESP: list[0]) else { return nil }
-                guard let messages = [RedisStreamMessage](fromRESP: list[1]) else { return nil }
+                guard let entries = [RedisStreamEntry](fromRESP: list[1]) else { return nil }
                 
-                storage[key] = messages
+                storage[key] = entries
             }
         default:
             return nil
@@ -50,7 +50,7 @@ extension RedisXREADResponse: RESPValueConvertible {
         return .null
     }
     
-    subscript(key: String) -> [RedisStreamMessage]? {
+    subscript(key: String) -> [RedisStreamEntry]? {
         get {
             return storage[key]
         }

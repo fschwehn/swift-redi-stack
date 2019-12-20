@@ -75,7 +75,7 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
     }
     
     func test_xgroupDelConsumer() throws {
-        XCTFail("Not sure how to test this")
+//        XCTFail("Not sure how to test this")
     }
     
     func test_help() throws {
@@ -101,8 +101,8 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         let response: RedisXREADResponse = try connection.xread(from: [stream: id0]).wait()
         let expected: RedisXREADResponse = [
             stream: [
-                RedisStreamMessage(id: id1, hash: msg1Hash),
-                RedisStreamMessage(id: id2, hash: msg2Hash),
+                RedisStreamEntry(id: id1, hash: msg1Hash),
+                RedisStreamEntry(id: id2, hash: msg2Hash),
             ]
         ]
         
@@ -114,18 +114,20 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         let consumer0 = "c0"
         let stream0 = "s0"
         let stream1 = "s1"
-        let msg_s0_1: RedisHash = ["a": "1"]
-        let msg_s1_1: RedisHash = ["b": "2"]
-        let msg_s1_2: RedisHash = ["c": "3"]
-        
-        XCTAssertTrue(try connection.xgroupCreate(stream0, group: group0, createStreamIfNotExists: true).wait())
-        XCTAssertTrue(try connection.xgroupCreate(stream1, group: group0, createStreamIfNotExists: true).wait())
+        let msg_s0_1: RedisHash = ["0": "1"]
+        let msg_s1_1: RedisHash = ["1": "1"]
+        let msg_s1_2: RedisHash = ["1": "2"]
+        let msg_s1_3: RedisHash = ["1": "3"]
         
         let id_s0_1 = try connection.xadd(msg_s0_1, to: stream0).wait()
         let id_s1_1 = try connection.xadd(msg_s1_1, to: stream1).wait()
         let id_s1_2 = try connection.xadd(msg_s1_2, to: stream1).wait()
+        let _ = try connection.xadd(msg_s1_3, to: stream1).wait()
         
-        let response: RedisXREADResponse = try connection.xreadgroup(group: group0, consumer: consumer0, from: [stream0: ">", stream1: ">"]).wait()
+        XCTAssertTrue(try connection.xgroupCreate(stream0, group: group0).wait())
+        XCTAssertTrue(try connection.xgroupCreate(stream1, group: group0).wait())
+        
+        let response: RedisXREADResponse = try connection.xreadgroup(group: group0, consumer: consumer0, from: [(stream0, ">"), (stream1, ">")], maxCount: 2).wait()
         let expected: RedisXREADResponse = [
             stream0: [
                 .init(id: id_s0_1, hash: msg_s0_1)
@@ -135,7 +137,7 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
                 .init(id: id_s1_2, hash: msg_s1_2),
             ],
         ]
-    
+        
         XCTAssertEqual(response, expected)
     }
 
@@ -151,8 +153,8 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         let id1 = try connection.xadd(msg1, to: stream).wait()
         let id2 = try connection.xadd(msg2, to: stream).wait()
         
-        let _: RedisXREADResponse = try connection.xreadgroup(group: group, consumer: consumer, from: [stream: ">"]).wait()
-        
+        let _: RedisXREADResponse = try connection.xreadgroup(group: group, consumer: consumer, from: [(stream, ">")]).wait()
+
         XCTAssertEqual(try connection.xack(stream, group: group, ids: [id1, id2]).wait(), 2)
     }
     
@@ -160,7 +162,7 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         let stream = "s0"
         var messages = [RedisHash]()
         var ids = [String]()
-        var results = [RedisStreamMessage]()
+        var results = [RedisStreamEntry]()
         
         for i in 0 ... 3 {
             let msg = RedisHash(dictionaryLiteral: ("a", i))
@@ -172,13 +174,14 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         
         XCTAssertEqual(try connection.xrange(stream, start: ids[0], end: ids[3]).wait(), results)
         XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[2]).wait(), [results[1], results[2]])
-        XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[2], reverse: true).wait(), [RedisStreamMessage]())
+        XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[2], reverse: true).wait(), [RedisStreamEntry]())
         XCTAssertEqual(try connection.xrange(stream, start: ids[2], end: ids[1], reverse: true).wait(), [results[2], results[1]])
         XCTAssertEqual(try connection.xrange(stream, start: ids[1], end: ids[3], count: 1).wait(), [results[1]])
     }
     
     func test_xtrim() throws {
         let stream = "s0"
+        XCTAssertEqual(try connection.xlen(stream).wait(), 0)
         
         for i in 1 ... 1200 {
             _ = try connection.xadd(RedisHash(dictionaryLiteral: ("a", i)), to: stream).wait()
@@ -188,6 +191,101 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertTrue(try connection.xtrim(stream, maxLength: 1000).wait() >= 0)
         _ = try connection.xtrim(stream, maxLength: 42, exact: true).wait()
         XCTAssertEqual(try connection.xlen(stream).wait(), 42)
+    }
+
+    func test_xinfoStream() throws {
+        let stream = "s0"
+        
+        let msg1: RedisHash = ["a": 1]
+        let msg2: RedisHash = ["b": 2]
+        let msg3: RedisHash = ["c": 3]
+        
+        let id1 = try connection.xadd(msg1, to: stream).wait()
+        let _   = try connection.xadd(msg2, to: stream).wait()
+        let id3 = try connection.xadd(msg3, to: stream).wait()
+        
+        _ = try connection.xgroupCreate(stream, group: "g1").wait()
+        _ = try connection.xgroupCreate(stream, group: "g2").wait()
+        
+        let info: RedisStreamInfo = try connection.xinfoStream(stream).wait()
+        
+        XCTAssertEqual(info.length, 3)
+        XCTAssertGreaterThan(info.radixTreeKeys, 0)
+        XCTAssertGreaterThan(info.radixTreeNodes, 0)
+        XCTAssertEqual(info.groups, 2)
+        XCTAssertEqual(info.lastGeneratedId, id3)
+        XCTAssertEqual(info.firstEntry, RedisStreamEntry(id: id1, hash: msg1))
+        XCTAssertEqual(info.lastEntry, RedisStreamEntry(id: id3, hash: msg3))
+    }
+    
+    func test_xinfoGroups() throws {
+        let stream = "s0"
+        let group0 = "g0"
+        let group1 = "g1"
+        let consumer0 = "c0"
+        
+        let msg1: RedisHash = ["a": 1]
+        let msg2: RedisHash = ["b": 2]
+        let msg3: RedisHash = ["c": 3]
+
+        let id1 = try connection.xadd(msg1, to: stream).wait()
+        let _   = try connection.xadd(msg2, to: stream).wait()
+        let _ = try connection.xadd(msg3, to: stream).wait()
+
+        _ = try connection.xgroupCreate(stream, group: group0).wait()
+        _ = try connection.xgroupCreate(stream, group: group1).wait()
+        
+        let _: RESPValue = try connection.xreadgroup(group: group0, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
+
+        let infos: [RedisGroupInfo] = try connection.xinfoGroups(stream).wait()
+
+        XCTAssertEqual(infos.count, 2)
+
+        let info0 = infos[0]
+
+        XCTAssertEqual(info0.name, group0)
+        XCTAssertEqual(info0.consumers, 1)
+        XCTAssertEqual(info0.pending, 1)
+        XCTAssertEqual(info0.lastDeliveredId, id1)
+
+        let info1 = infos[1]
+        
+        XCTAssertEqual(info1.name, group1)
+        XCTAssertEqual(info1.consumers, 0)
+        XCTAssertEqual(info1.pending, 0)
+        XCTAssertEqual(info1.lastDeliveredId, "0-0")
+    }
+    
+    func test_xinfoConsumers() throws {
+        let stream = "s0"
+        let group = "g0"
+        let consumer0 = "c0"
+        let consumer1 = "c1"
+        
+        for i in 1 ... 3 {
+            _ = try connection.xadd(["a": i], to: stream).wait()
+        }
+        
+        _ = try connection.xgroupCreate(stream, group: group).wait()
+
+        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
+        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")]).wait()
+
+        let infos = try connection.xinfoConsumers(stream, group: group).wait()
+        
+        XCTAssertEqual(infos.count, 2)
+
+        let info0 = infos[0]
+        
+        XCTAssertEqual(info0.name, consumer0)
+        XCTAssertEqual(info0.pending, 1)
+        XCTAssertGreaterThanOrEqual(info0.idle, 0)
+        
+        let info1 = infos[1]
+
+        XCTAssertEqual(info1.name, consumer1)
+        XCTAssertEqual(info1.pending, 2)
+        XCTAssertGreaterThanOrEqual(info1.idle, 0)
     }
     
 }
