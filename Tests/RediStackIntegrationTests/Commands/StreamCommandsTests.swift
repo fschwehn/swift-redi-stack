@@ -288,4 +288,31 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertGreaterThanOrEqual(info1.idle, 0)
     }
     
+    func test_xpending() throws {
+        let stream = "s0"
+        let group = "g0"
+        let consumer0 = "c0"
+        let consumer1 = "c1"
+        
+        for i in 1 ... 4 {
+            _ = try connection.xadd(["a": i], to: stream, id: "0-\(i)").wait()
+        }
+        
+        _ = try connection.xgroupCreate(stream, group: group).wait()
+
+        XCTAssertNil(try connection.xpending(stream, group: group).wait())
+        
+        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 2).wait()
+        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")], maxCount: 1).wait()
+        
+        let res: RedisXPendingSimpleResponse! = try connection.xpending(stream, group: group).wait()
+        
+        XCTAssertNotNil(res)
+        XCTAssertEqual(res.pending, 3)
+        XCTAssertEqual(res.smallestPendingId, "0-1")
+        XCTAssertEqual(res.greatestPendingId, "0-3")
+        XCTAssertEqual(res.consumers.count, 2)
+        XCTAssertTrue(res.consumers.contains(.init(name: consumer0, pending: 2)))
+        XCTAssertTrue(res.consumers.contains(.init(name: consumer1, pending: 1)))
+    }
 }

@@ -76,7 +76,10 @@ extension RedisClient {
             .convertFromRESPValue()
     }
 
-//    XCLAIM
+    @inlinable
+    public func xclaim() {
+        
+    }
     
     /// Removes the specified entries from a stream.
     /// - Parameter key: The stream's key
@@ -274,8 +277,46 @@ extension RedisClient {
         return send(command: "XLEN", with: args)
             .convertFromRESPValue()
     }
-    
-//    XPENDING
+
+    public func xpending(_ key: String, group: String) -> EventLoopFuture<RedisXPendingSimpleResponse?> {
+        let args = [
+            RESPValue.init(bulk: key),
+            RESPValue.init(bulk: group)
+        ]
+        
+        return send(command: "XPENDING", with: args).flatMapThrowing { (value: RESPValue) -> RedisXPendingSimpleResponse? in
+            do {
+                let arr: [RESPValue] = try self.decode(value)
+                
+                guard arr.count >= 4 else { throw RESPDecodingError.arrayOutOfBounds }
+                
+                let pending: Int = try self.decode(arr[0])
+                
+                guard pending > 0 else { return nil }
+                
+                let consumersArr: [RESPValue] = try self.decode(arr[3])
+                let consumers: [RedisXPendingSimpleResponse.Consumer] = try consumersArr.map {
+                    let consumerArr: [RESPValue] = try self.decode($0)
+                    guard consumerArr.count >= 2 else { throw RESPDecodingError.arrayOutOfBounds }
+                    
+                    return RedisXPendingSimpleResponse.Consumer(
+                        name: try self.decode(consumerArr[0]),
+                        pending: try self.decode(consumerArr[1])
+                    )
+                }
+                
+                return RedisXPendingSimpleResponse(
+                    pending: pending,
+                    smallestPendingId: try self.decode(arr[1]),
+                    greatestPendingId: try self.decode(arr[2]),
+                    consumers: consumers
+                )
+            }
+            catch {
+                throw RESPDecodingError.complex(expectedType: RedisXPendingSimpleResponse.self, value: value, underlyingError: error)
+            }
+        }
+    }
     
     @inlinable
     public func xrange<Value: RESPValueConvertible>(
