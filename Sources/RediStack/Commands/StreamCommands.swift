@@ -15,28 +15,6 @@
 import NIO
 import Foundation
 
-public enum RESPDecodingError: LocalizedError {
-    case arrayOutOfBounds
-    case keyMismatch(expected: String, actual: String)
-    case typeMismatch(expectedType: Any.Type, value: RESPValue)
-    case complex(expectedType: Any.Type, value: RESPValue, underlyingError: Error)
-    
-    public var errorDescription: String? {
-        switch self {
-        case .arrayOutOfBounds:
-            return "RESPArray index out of range"
-        case .keyMismatch(let expected, let actual):
-            return "Expected key '\(expected)', found '\(actual)' instead"
-        case .typeMismatch(let expectedType, let value):
-            return "Failed to decode RESPValue to \(expectedType): \(value)"
-        case .complex(let expectedType, let value, let underlyingError):
-            return "Failed to decode RESPValue to \(expectedType): \(value), underlying error: \(underlyingError.localizedDescription)"
-        }
-    }
-    
-}
-
-
 extension RedisClient {
     
     @inlinable
@@ -165,6 +143,7 @@ extension RedisClient {
             .convertFromRESPValue()
     }
     
+    @inlinable
     public func xinfoStream(_ key: String) -> EventLoopFuture<RedisStreamInfo> {
         let args = [
             RESPValue.init(bulk: "STREAM"),
@@ -172,26 +151,10 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing({ (value: RESPValue) -> RedisStreamInfo in
-                do {
-                    let arr: [RESPValue] = try self.decode(value)
-                    
-                    return RedisStreamInfo(
-                        length: try self.decodeKeyedValue(arr, at: 0, expectedKey: "length"),
-                        radixTreeKeys:  try self.decodeKeyedValue(arr, at: 2, expectedKey: "radix-tree-keys"),
-                        radixTreeNodes:  try self.decodeKeyedValue(arr, at: 4, expectedKey: "radix-tree-nodes"),
-                        groups:  try self.decodeKeyedValue(arr, at: 6, expectedKey: "groups"),
-                        lastGeneratedId:  try self.decodeKeyedValue(arr, at: 8, expectedKey: "last-generated-id"),
-                        firstEntry:  try self.decodeKeyedValue(arr, at: 10, expectedKey: "first-entry"),
-                        lastEntry:  try self.decodeKeyedValue(arr, at: 12, expectedKey: "last-entry")
-                    )
-                }
-                catch {
-                    throw RESPDecodingError.complex(expectedType: RedisStreamInfo.self, value: value, underlyingError: error)
-                }
-            })
+            .flatMapThrowing(RedisStreamInfo.init)
     }
     
+    @inlinable
     public func xinfoGroups(_ key: String) -> EventLoopFuture<[RedisGroupInfo]> {
         let args = [
             RESPValue.init(bulk: "GROUPS"),
@@ -199,23 +162,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing({ (value: RESPValue) -> [RedisGroupInfo] in
-                do {
-                    let groups: [[RESPValue]] = try self.decode(value)
-                    
-                    return try groups.map { arr -> RedisGroupInfo in
-                        return RedisGroupInfo(
-                            name: try self.decodeKeyedValue(arr, at: 0, expectedKey: "name"),
-                            consumers: try self.decodeKeyedValue(arr, at: 2, expectedKey: "consumers"),
-                            pending: try self.decodeKeyedValue(arr, at: 4, expectedKey: "pending"),
-                            lastDeliveredId: try self.decodeKeyedValue(arr, at: 6, expectedKey: "last-delivered-id")
-                        )
-                    }
-                }
-                catch {
-                    throw RESPDecodingError.complex(expectedType: [RedisGroupInfo].self, value: value, underlyingError: error)
-                }
-            })
+            .flatMapThrowing([RedisGroupInfo].init)
     }
     
     public func xinfoConsumers(_ key: String, group: String) -> EventLoopFuture<[RedisConsumerInfo]> {
@@ -226,46 +173,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing({ (value: RESPValue) -> [RedisConsumerInfo] in
-                do {
-                    let consumers: [[RESPValue]] = try self.decode(value)
-                    
-                    return try consumers.map { arr -> RedisConsumerInfo in
-                        return RedisConsumerInfo(
-                            name: try self.decodeKeyedValue(arr, at: 0, expectedKey: "name"),
-                            pending: try self.decodeKeyedValue(arr, at: 2, expectedKey: "pending"),
-                            idle: try self.decodeKeyedValue(arr, at: 4, expectedKey: "idle")
-                        )
-                    }
-                }
-                catch {
-                    throw RESPDecodingError.complex(expectedType: [RedisConsumerInfo].self, value: value, underlyingError: error)
-                }
-            })
-    }
-    
-    @inlinable
-    internal func decode<Value: RESPValueConvertible>(_ respValue: RESPValue) throws -> Value {
-        guard let value = Value(fromRESP: respValue) else {
-            throw RESPDecodingError.typeMismatch(expectedType: Value.self, value: respValue)
-        }
-        return value
-    }
-    
-    internal func decodeKeyedValue<Value: RESPValueConvertible>(_ array: [RESPValue], at keyOffset: Int, expectedKey: String) throws -> Value {
-        let valueOffset = keyOffset + 1
-        
-        guard array.count > valueOffset else {
-            throw RESPDecodingError.arrayOutOfBounds
-        }
-        
-        let key: String = try decode(array[keyOffset])
-        
-        guard key == expectedKey else {
-            throw RESPDecodingError.keyMismatch(expected: expectedKey, actual: key)
-        }
-        
-        return try decode(array[valueOffset])
+            .flatMapThrowing([RedisConsumerInfo].init)
     }
     
     /// Returns the number of entries inside a stream
@@ -286,29 +194,29 @@ extension RedisClient {
         
         return send(command: "XPENDING", with: args).flatMapThrowing { (value: RESPValue) -> RedisXPendingSimpleResponse? in
             do {
-                let arr: [RESPValue] = try self.decode(value)
+                let arr = try [RESPValue].decode(value)
                 
                 guard arr.count >= 4 else { throw RESPDecodingError.arrayOutOfBounds }
                 
-                let pending: Int = try self.decode(arr[0])
+                let pending = try Int.decode(arr[0])
                 
                 guard pending > 0 else { return nil }
                 
-                let consumersArr: [RESPValue] = try self.decode(arr[3])
+                let consumersArr = try [RESPValue].decode(arr[3])
                 let consumers: [RedisXPendingSimpleResponse.Consumer] = try consumersArr.map {
-                    let consumerArr: [RESPValue] = try self.decode($0)
+                    let consumerArr = try [RESPValue].decode($0)
                     guard consumerArr.count >= 2 else { throw RESPDecodingError.arrayOutOfBounds }
                     
                     return RedisXPendingSimpleResponse.Consumer(
-                        name: try self.decode(consumerArr[0]),
-                        pending: try self.decode(consumerArr[1])
+                        name: try .decode(consumerArr[0]),
+                        pending: try .decode(consumerArr[1])
                     )
                 }
                 
                 return RedisXPendingSimpleResponse(
                     pending: pending,
-                    smallestPendingId: try self.decode(arr[1]),
-                    greatestPendingId: try self.decode(arr[2]),
+                    smallestPendingId: try .decode(arr[1]),
+                    greatestPendingId: try .decode(arr[2]),
                     consumers: consumers
                 )
             }
