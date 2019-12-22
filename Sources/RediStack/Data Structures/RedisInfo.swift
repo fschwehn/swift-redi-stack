@@ -98,3 +98,4 @@ extension RedisConsumerInfo: RESPDecodable {
 }
 
 extension RedisConsumerInfo: Equatable {}
+

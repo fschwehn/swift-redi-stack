@@ -20,6 +20,12 @@ public protocol RESPDecodable {
     
 }
 
+public protocol RESPDecodableToOptional {
+    
+    init?(_ value: RESPValue) throws
+    
+}
+
 public enum RESPDecodingError: LocalizedError {
     case arrayOutOfBounds
     case keyMismatch(expected: String, actual: String)

@@ -165,6 +165,7 @@ extension RedisClient {
             .flatMapThrowing([RedisGroupInfo].init)
     }
     
+    @inlinable
     public func xinfoConsumers(_ key: String, group: String) -> EventLoopFuture<[RedisConsumerInfo]> {
         let args = [
             RESPValue.init(bulk: "CONSUMERS"),
@@ -186,44 +187,15 @@ extension RedisClient {
             .convertFromRESPValue()
     }
 
+    @inlinable
     public func xpending(_ key: String, group: String) -> EventLoopFuture<RedisXPendingSimpleResponse?> {
         let args = [
             RESPValue.init(bulk: key),
             RESPValue.init(bulk: group)
         ]
         
-        return send(command: "XPENDING", with: args).flatMapThrowing { (value: RESPValue) -> RedisXPendingSimpleResponse? in
-            do {
-                let arr = try [RESPValue].decode(value)
-                
-                guard arr.count >= 4 else { throw RESPDecodingError.arrayOutOfBounds }
-                
-                let pending = try Int.decode(arr[0])
-                
-                guard pending > 0 else { return nil }
-                
-                let consumersArr = try [RESPValue].decode(arr[3])
-                let consumers: [RedisXPendingSimpleResponse.Consumer] = try consumersArr.map {
-                    let consumerArr = try [RESPValue].decode($0)
-                    guard consumerArr.count >= 2 else { throw RESPDecodingError.arrayOutOfBounds }
-                    
-                    return RedisXPendingSimpleResponse.Consumer(
-                        name: try .decode(consumerArr[0]),
-                        pending: try .decode(consumerArr[1])
-                    )
-                }
-                
-                return RedisXPendingSimpleResponse(
-                    pending: pending,
-                    smallestPendingId: try .decode(arr[1]),
-                    greatestPendingId: try .decode(arr[2]),
-                    consumers: consumers
-                )
-            }
-            catch {
-                throw RESPDecodingError.complex(expectedType: RedisXPendingSimpleResponse.self, value: value, underlyingError: error)
-            }
-        }
+        return send(command: "XPENDING", with: args)
+            .flatMapThrowing(RedisXPendingSimpleResponse.init)
     }
     
     @inlinable
