@@ -12,43 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct RedisXREADResponse: ExpressibleByDictionaryLiteral {
+public struct RedisXREADResponse {
     
     internal var storage = [String : [RedisStreamEntry]]()
-    
-    public init(dictionaryLiteral elements: (String, [RedisStreamEntry])...) {
-        for element in elements {
-            storage[element.0] = element.1
-        }
-    }
-    
-}
-
-extension RedisXREADResponse: RESPValueConvertible {
-    public init?(fromRESP value: RESPValue) {
-        switch value {
-        case .null:
-            break
-            
-        case .array(let streams):
-            storage.reserveCapacity(streams.count)
-            
-            for stream in streams {
-                guard case .array(let list) = stream else { return nil }
-                guard list.count == 2 else { return nil }
-                guard let key = String(fromRESP: list[0]) else { return nil }
-                guard let entries = [RedisStreamEntry](fromRESP: list[1]) else { return nil }
-                
-                storage[key] = entries
-            }
-        default:
-            return nil
-        }
-    }
-
-    public func convertedToRESPValue() -> RESPValue {
-        return .null
-    }
     
     subscript(key: String) -> [RedisStreamEntry]? {
         get {
@@ -58,6 +24,42 @@ extension RedisXREADResponse: RESPValueConvertible {
             storage[key] = newValue
         }
     }
+    
+}
+
+extension RedisXREADResponse: ExpressibleByDictionaryLiteral {
+    
+    public init(dictionaryLiteral elements: (String, [RedisStreamEntry])...) {
+        for element in elements {
+            storage[element.0] = element.1
+        }
+    }
+    
+}
+
+extension RedisXREADResponse: RESPDecodable {
+    
+    public static func decode(_ value: RESPValue) throws -> RedisXREADResponse {
+        var storage = [String : [RedisStreamEntry]]()
+        
+        if case .array(let streams) = value {
+            for stream in streams {
+                let values = try [RESPValue].decode(stream)
+                
+                guard values.count >= 2 else {
+                    throw RESPDecodingError.arrayOutOfBounds
+                }
+                
+                let key = try String.decode(values[0])
+                let entries = try [RedisStreamEntry].decode(values[1])
+                
+                storage[key] = entries
+            }
+        }
+        
+        return .init(storage: storage)
+    }
+    
 }
 
 extension RedisXREADResponse: Equatable {}

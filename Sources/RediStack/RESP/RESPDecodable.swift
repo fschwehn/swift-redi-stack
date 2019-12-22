@@ -16,13 +16,13 @@ import Foundation
 
 public protocol RESPDecodable {
     
-    init(_ value: RESPValue) throws
+    static func decode(_ value: RESPValue) throws -> Self
     
 }
 
 public protocol RESPDecodableToOptional {
     
-    init?(_ value: RESPValue) throws
+    static func decode(_ value: RESPValue) throws -> Self?
     
 }
 
@@ -48,7 +48,7 @@ public enum RESPDecodingError: LocalizedError {
 
 public extension Array where Element == RESPValue {
 
-    func decodeKeyedValue<Value: RESPValueConvertible>(at keyOffset: Int, expectedKey: String) throws -> Value {
+    func decodeKeyedValue<Value: RESPDecodable>(at keyOffset: Int, expectedKey: String) throws -> Value {
         let valueOffset = keyOffset + 1
 
         guard count > valueOffset else {
@@ -68,21 +68,11 @@ public extension Array where Element == RESPValue {
 
 extension Array: RESPDecodable where Element: RESPDecodable {
 
-    public init(_ value: RESPValue) throws {
-        let arr = try [RESPValue].decode(value)
-        self = try arr.map(Element.init)
-    }
-
-}
-
-public extension RESPValueConvertible {
-    
-    @inlinable
-    static func decode(_ respValue: RESPValue) throws -> Self {
-        guard let value = Self(fromRESP: respValue) else {
-            throw RESPDecodingError.typeMismatch(expectedType: Self.self, value: respValue)
+    public static func decode(_ value: RESPValue) throws -> Array<Element> {
+        guard case .array(let arr) = value else {
+            throw RESPDecodingError.typeMismatch(expectedType: Self.self, value: value)
         }
-        return value
+        return try arr.map(Element.decode)
     }
-    
+
 }

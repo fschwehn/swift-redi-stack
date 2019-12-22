@@ -151,7 +151,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing(RedisStreamInfo.init)
+            .flatMapThrowing(RedisStreamInfo.decode)
     }
     
     @inlinable
@@ -162,7 +162,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing([RedisGroupInfo].init)
+            .flatMapThrowing([RedisGroupInfo].decode)
     }
     
     @inlinable
@@ -174,7 +174,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing([RedisConsumerInfo].init)
+            .flatMapThrowing([RedisConsumerInfo].decode)
     }
     
     /// Returns the number of entries inside a stream
@@ -195,11 +195,11 @@ extension RedisClient {
         ]
         
         return send(command: "XPENDING", with: args)
-            .flatMapThrowing(RedisXPendingSimpleResponse.init)
+            .flatMapThrowing(RedisXPendingSimpleResponse.decode)
     }
     
     @inlinable
-    public func xrange<Value: RESPValueConvertible>(
+    public func xrange<Value: RESPDecodable>(
         _ key: String,
         start: String,
         end: String,
@@ -220,11 +220,11 @@ extension RedisClient {
         let command = reverse ? "XREVRANGE" : "XRANGE"
         
         return send(command: command, with: args)
-            .convertFromRESPValue()
+            .flatMapThrowing(Value.decode)
     }
     
     @inlinable
-    public func xrevrange<Value: RESPValueConvertible>(
+    public func xrevrange<Value: RESPDecodable>(
         _ key: String,
         start: String,
         end: String,
@@ -235,7 +235,7 @@ extension RedisClient {
     }
     
     @inlinable
-    public func xread<Value: RESPValueConvertible>(
+    public func xread<Value: RESPDecodable>(
         from streamPositions: [String : String],
         maxCount count: Int? = nil,
         blockFor milliseconds: Int? = nil
@@ -269,12 +269,12 @@ extension RedisClient {
         }
         
         return send(command: "XREAD", with: args)
-            .convertFromRESPValue()
+            .flatMapThrowing(Value.decode)
     }
     
     // @TODO: we want a simplified variant that takes one stream key and one offset instead of a dicationary
     @inlinable
-    public func xreadgroup<Value: RESPValueConvertible>(
+    public func xreadgroup<Value: RESPDecodable>(
         group: String,
         consumer: String,
         from streamPositions: [(String, String)],
@@ -310,7 +310,7 @@ extension RedisClient {
         }
         
         return send(command: "XREADGROUP", with: args)
-            .convertFromRESPValue()
+            .flatMapThrowing(Value.decode)
     }
     
     @inlinable

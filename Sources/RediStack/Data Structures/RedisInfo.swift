@@ -25,11 +25,11 @@ public struct RedisStreamInfo {
 
 extension RedisStreamInfo: RESPDecodable {
     
-    public init(_ value: RESPValue) throws {
+    public static func decode(_ value: RESPValue) throws -> RedisStreamInfo {
         do {
             let arr = try [RESPValue].decode(value)
             
-            self.init(
+            return .init(
                 length: try arr.decodeKeyedValue(at: 0, expectedKey: "length"),
                 radixTreeKeys: try arr.decodeKeyedValue(at: 2, expectedKey: "radix-tree-keys"),
                 radixTreeNodes: try arr.decodeKeyedValue(at: 4, expectedKey: "radix-tree-nodes"),
@@ -58,12 +58,12 @@ public struct RedisGroupInfo {
 extension RedisGroupInfo: Equatable {}
 
 extension RedisGroupInfo: RESPDecodable {
-    
-    public init(_ value: RESPValue) throws {
+
+    public static func decode(_ value: RESPValue) throws -> RedisGroupInfo {
         do {
             let arr = try [RESPValue].decode(value)
             
-            self.init(
+            return .init(
                 name: try arr.decodeKeyedValue(at: 0, expectedKey: "name"),
                 consumers: try arr.decodeKeyedValue(at: 2, expectedKey: "consumers"),
                 pending: try arr.decodeKeyedValue(at: 4, expectedKey: "pending"),
@@ -85,10 +85,10 @@ public struct RedisConsumerInfo {
 
 extension RedisConsumerInfo: RESPDecodable {
     
-    public init(_ value: RESPValue) throws {
+    public static func decode(_ value: RESPValue) throws -> RedisConsumerInfo {
         let arr = try [RESPValue].decode(value)
         
-        self.init(
+        return .init(
             name: try arr.decodeKeyedValue(at: 0, expectedKey: "name"),
             pending: try arr.decodeKeyedValue(at: 2, expectedKey: "pending"),
             idle: try arr.decodeKeyedValue(at: 4, expectedKey: "idle")

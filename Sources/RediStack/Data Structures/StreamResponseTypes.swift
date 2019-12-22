@@ -30,7 +30,7 @@ extension RedisXPendingSimpleResponse.Consumer: Equatable {}
 
 extension RedisXPendingSimpleResponse: RESPDecodableToOptional {
     
-    public init?(_ value: RESPValue) throws {
+    public static func decode(_ value: RESPValue) throws -> RedisXPendingSimpleResponse? {
         do {
             let arr = try [RESPValue].decode(value)
             
@@ -51,7 +51,7 @@ extension RedisXPendingSimpleResponse: RESPDecodableToOptional {
                 )
             }
             
-            self.init(
+            return .init(
                 pending: pending,
                 smallestPendingId: try .decode(arr[1]),
                 greatestPendingId: try .decode(arr[2]),

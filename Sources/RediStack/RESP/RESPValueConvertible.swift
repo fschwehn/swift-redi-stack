@@ -20,13 +20,24 @@
 /// to a `RESPValueConvertible` instance should be short lived for that purpose.
 ///
 /// See `RESPValue`.
-public protocol RESPValueConvertible {
+public protocol RESPValueConvertible: RESPDecodable {
     /// Attempts to create a new instance of the conforming type based on the value represented by the `RESPValue`.
     /// - Parameter value: The `RESPValue` representation to attempt to initialize from.
     init?(fromRESP value: RESPValue)
 
     /// Creates a `RESPValue` representation of the conforming type's value.
     func convertedToRESPValue() -> RESPValue
+}
+
+extension RESPValueConvertible {
+    
+    public static func decode(_ value: RESPValue) throws -> Self {
+        guard let decoded = Self.init(fromRESP: value) else {
+            throw RESPDecodingError.typeMismatch(expectedType: Self.self, value: value)
+        }
+        return decoded
+    }
+    
 }
 
 extension RESPValue: RESPValueConvertible {
@@ -197,6 +208,19 @@ extension Array where Element == UInt8 {
         default: return nil
         }
     }
+}
+
+extension Optional: RESPDecodable where Wrapped: RESPDecodable {
+    
+    public static func decode(_ value: RESPValue) throws -> Optional<Wrapped> {
+        switch value {
+        case .null:
+            return nil
+        default:
+            return try Wrapped.decode(value)
+        }
+    }
+    
 }
 
 extension Optional: RESPValueConvertible where Wrapped: RESPValueConvertible {

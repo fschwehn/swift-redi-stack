@@ -17,23 +17,21 @@ public struct RedisStreamEntry {
     public let hash: RedisHash
 }
 
-extension RedisStreamEntry: RESPValueConvertible {
-    public init?(fromRESP value: RESPValue) {
-        guard case .array(let list) = value else { return nil }
-        guard list.count == 2 else { return nil }
-        guard let id = String(fromRESP: list[0]) else { return nil }
-        guard let hash = RedisHash(fromRESP: list[1]) else { return nil }
+extension RedisStreamEntry: RESPDecodable {
+    
+    public static func decode(_ value: RESPValue) throws -> RedisStreamEntry {
+        let arr = try [RESPValue].decode(value)
         
-        self.id = id
-        self.hash = hash
+        guard arr.count >= 2 else {
+            throw RESPDecodingError.arrayOutOfBounds
+        }
+        
+        return .init(
+            id: try .decode(arr[0]),
+            hash: try .decode(arr[1])
+        )
     }
-
-    public func convertedToRESPValue() -> RESPValue {
-        return .array([
-            .init(bulk: id),
-            hash.convertedToRESPValue()
-        ])
-    }
+    
 }
 
 extension RedisStreamEntry: Equatable {}
