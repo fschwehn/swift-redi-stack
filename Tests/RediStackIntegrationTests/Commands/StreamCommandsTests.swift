@@ -309,19 +309,38 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         
         _ = try connection.xgroupCreate(stream, group: group).wait()
 
+        // empty check
         XCTAssertNil(try connection.xpending(stream, group: group).wait())
+        XCTAssertEqual((try connection.xpending(stream, group: group, smallestId: "-", greatestId: "+", count: 100).wait()).count, 0)
         
         _ = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 2).wait()
         _ = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")], maxCount: 1).wait()
         
-        let res: RedisXPendingSimpleResponse! = try connection.xpending(stream, group: group).wait()
+        // simple form
+        let res1: RedisXPendingSimpleResponse! = try connection.xpending(stream, group: group).wait()
         
-        XCTAssertNotNil(res)
-        XCTAssertEqual(res.pending, 3)
-        XCTAssertEqual(res.smallestPendingId, "0-1")
-        XCTAssertEqual(res.greatestPendingId, "0-3")
-        XCTAssertEqual(res.consumers.count, 2)
-        XCTAssertTrue(res.consumers.contains(.init(name: consumer0, pending: 2)))
-        XCTAssertTrue(res.consumers.contains(.init(name: consumer1, pending: 1)))
+        XCTAssertNotNil(res1)
+        XCTAssertEqual(res1.pending, 3)
+        XCTAssertEqual(res1.smallestPendingId, "0-1")
+        XCTAssertEqual(res1.greatestPendingId, "0-3")
+        XCTAssertEqual(res1.consumers.count, 2)
+        XCTAssertTrue(res1.consumers.contains(.init(name: consumer0, pending: 2)))
+        XCTAssertTrue(res1.consumers.contains(.init(name: consumer1, pending: 1)))
+        
+        // extended form
+        let infos = try connection.xpending(stream, group: group, smallestId: "-", greatestId: "+", count: 100).wait()
+        XCTAssertEqual(infos.count, 3)
+        
+        XCTAssertTrue(infos.contains(where: {
+            $0.id == "0-1" && $0.consumer == consumer0 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
+        }))
+        
+        XCTAssertTrue(infos.contains(where: {
+            $0.id == "0-2" && $0.consumer == consumer0 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
+        }))
+        
+        XCTAssertTrue(infos.contains(where: {
+            $0.id == "0-3" && $0.consumer == consumer1 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
+        }))
     }
 }

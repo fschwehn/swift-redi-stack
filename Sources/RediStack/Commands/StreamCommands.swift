@@ -199,6 +199,20 @@ extension RedisClient {
     }
     
     @inlinable
+    public func xpending(_ key: String, group: String, smallestId: String, greatestId: String, count: Int) -> EventLoopFuture<[RedisXPendingEntryInfo]> {
+        let args: [RESPValue] = [
+            .init(bulk: key),
+            .init(bulk: group),
+            .init(bulk: smallestId),
+            .init(bulk: greatestId),
+            .init(bulk: count),
+        ]
+        
+        return send(command: "XPENDING", with: args)
+            .flatMapThrowing([RedisXPendingEntryInfo].decode)
+    }
+    
+    @inlinable
     public func xrange(
         _ key: String,
         start: String,

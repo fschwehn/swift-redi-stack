@@ -64,3 +64,29 @@ extension RedisXPendingSimpleResponse: RESPDecodableToOptional {
     }
     
 }
+
+public struct RedisXPendingEntryInfo {
+    let id: String
+    let consumer: String
+    let millisecondsSinceLastDelivered: Int
+    let deliveryCount: Int
+}
+
+extension RedisXPendingEntryInfo: RESPDecodable {
+    
+    public static func decode(_ value: RESPValue) throws -> RedisXPendingEntryInfo {
+        let arr = try [RESPValue].decode(value)
+        
+        guard arr.count >= 4 else { throw RESPDecodingError.arrayOutOfBounds }
+        
+        return Self(
+            id: try String.decode(arr[0]),
+            consumer: try String.decode(arr[1]),
+            millisecondsSinceLastDelivered: try Int.decode(arr[2]),
+            deliveryCount: try Int.decode(arr[3])
+        )
+    }
+        
+}
+
+extension RedisXPendingEntryInfo: Equatable {}
