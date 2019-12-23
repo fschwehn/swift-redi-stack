@@ -249,11 +249,11 @@ extension RedisClient {
     }
     
     @inlinable
-    public func xread<Value: RESPDecodable>(
+    public func xread(
         from streamPositions: [String : String],
         maxCount count: Int? = nil,
         blockFor milliseconds: Int? = nil
-    ) -> EventLoopFuture<Value> {
+    ) -> EventLoopFuture<RedisXREADResponse> {
         var args = [RESPValue]()
         
         args.reserveCapacity(3 + streamPositions.count * 2)
@@ -283,7 +283,7 @@ extension RedisClient {
         }
         
         return send(command: "XREAD", with: args)
-            .flatMapThrowing(Value.decode)
+            .flatMapThrowing(RedisXREADResponse.decode)
     }
     
     // @TODO: we want a simplified variant that takes one stream key and one offset instead of a dicationary

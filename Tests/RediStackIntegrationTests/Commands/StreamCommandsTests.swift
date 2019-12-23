@@ -93,7 +93,6 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
 
     func test_xread() throws {
         // read empty stream
-        XCTAssertEqual(try connection.xread(from: ["empty": "$"]).wait(), RESPValue.null)
         XCTAssertEqual(try connection.xread(from: ["empty": "$"]).wait(), RedisXREADResponse())
         
         // read filled stream
