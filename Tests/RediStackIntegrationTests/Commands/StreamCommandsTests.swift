@@ -75,7 +75,16 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
     }
     
     func test_xgroupDelConsumer() throws {
-//        XCTFail("Not sure how to test this")
+        let stream = "s"
+        let group = "g"
+        let consumer = "c"
+        
+        XCTAssertTrue(try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait())
+        _ = try connection.xadd(["a":"b"], to: stream).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer, from: [(stream, ">")]).wait()
+        
+        let numDeleted = try connection.xgroupDelConsumer(stream, group: group, consumer: consumer).wait()
+        XCTAssertEqual(numDeleted, 1)
     }
     
     func test_help() throws {
