@@ -54,9 +54,59 @@ extension RedisClient {
             .convertFromRESPValue()
     }
 
-    @inlinable
-    public func xclaim() {
+    public func xclaim(
+        _ key: String,
+        group: String,
+        consumer: String,
+        minIdleTime: Int,
+        ids: [String],
+        idle: Int? = nil,
+        time: Int? = nil,
+        retryCount: Int? = nil,
+        force: Bool = false,
+        justId: Bool = false
+    ) -> EventLoopFuture<[RedisStreamEntry]> {
+        var args = [RESPValue]()
         
+        args.reserveCapacity(ids.count + 14)
+        
+        args.append(.init(bulk: key))
+        args.append(.init(bulk: group))
+        args.append(.init(bulk: consumer))
+        args.append(.init(bulk: minIdleTime))
+            
+        args += ids.map(RESPValue.init)
+        
+        if let idle = idle {
+            args.append(.init(bulk: "IDLE"))
+            args.append(.init(bulk: idle))
+        }
+        
+        if let time = time {
+            args.append(.init(bulk: "TIME"))
+            args.append(.init(bulk: time))
+        }
+        
+        if let retryCount = retryCount {
+            args.append(.init(bulk: "RETRYCOUNT"))
+            args.append(.init(bulk: retryCount))
+        }
+        
+        if let retryCount = retryCount {
+            args.append(.init(bulk: "RETRYCOUNT"))
+            args.append(.init(bulk: retryCount))
+        }
+        
+        if force {
+            args.append(.init(bulk: "FORCE"))
+        }
+        
+        if justId {
+            args.append(.init(bulk: "JUSTID"))
+        }
+        
+        return send(command: "XCLAIM", with: args)
+            .decodeFromRESPValue()
     }
     
     /// Removes the specified entries from a stream.
@@ -151,7 +201,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing(RedisStreamInfo.decode)
+            .decodeFromRESPValue()
     }
     
     @inlinable
@@ -162,7 +212,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing([RedisGroupInfo].decode)
+            .decodeFromRESPValue()
     }
     
     @inlinable
@@ -174,7 +224,7 @@ extension RedisClient {
         ]
         
         return send(command: "XINFO", with: args)
-            .flatMapThrowing([RedisConsumerInfo].decode)
+            .decodeFromRESPValue()
     }
     
     /// Returns the number of entries inside a stream
@@ -209,7 +259,7 @@ extension RedisClient {
         ]
         
         return send(command: "XPENDING", with: args)
-            .flatMapThrowing([RedisXPendingEntryInfo].decode)
+            .decodeFromRESPValue()
     }
     
     @inlinable
@@ -234,7 +284,7 @@ extension RedisClient {
         let command = reverse ? "XREVRANGE" : "XRANGE"
         
         return send(command: command, with: args)
-            .flatMapThrowing([RedisStreamEntry].decode)
+            .decodeFromRESPValue()
     }
     
     @inlinable
@@ -283,7 +333,7 @@ extension RedisClient {
         }
         
         return send(command: "XREAD", with: args)
-            .flatMapThrowing(RedisXREADResponse.decode)
+            .decodeFromRESPValue()
     }
     
     // @TODO: we want a simplified variant that takes one stream key and one offset instead of a dicationary
@@ -324,7 +374,7 @@ extension RedisClient {
         }
         
         return send(command: "XREADGROUP", with: args)
-            .flatMapThrowing(RedisXREADResponse.decode)
+            .decodeFromRESPValue()
     }
     
     @inlinable

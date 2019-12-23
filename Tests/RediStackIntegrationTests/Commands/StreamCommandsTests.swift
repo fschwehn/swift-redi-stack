@@ -342,4 +342,30 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
             $0.id == "0-3" && $0.consumer == consumer1 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
         }))
     }
+    
+    func test_xclaim() throws {
+        let stream = "s"
+        let group = "g"
+        let consumer0 = "c0"
+        let consumer1 = "c1"
+        let id0 = "0-1"
+        let msg1: RedisHash = ["a": 1]
+        
+        _ = try connection.xgroupCreate(stream, group: group, createStreamIfNotExists: true).wait()
+        
+        // test empty response
+        XCTAssertEqual((try connection.xclaim(stream, group: group, consumer: consumer0, minIdleTime: 1, ids: [id0]).wait()).count, 0)
+        
+        // add and consume a message
+        let id1 = try connection.xadd(msg1, to: stream).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
+        
+        // assert message is pending
+        XCTAssertEqual((try connection.xpending(stream, group: group).wait()?.pending), 1)
+        
+        // claim pending message and check result
+        let res = try connection.xclaim(stream, group: group, consumer: consumer1, minIdleTime: 1, ids: [id1]).wait()
+        XCTAssertEqual(res, [RedisStreamEntry(id: id1, hash: msg1)])
+    }
+    
 }
