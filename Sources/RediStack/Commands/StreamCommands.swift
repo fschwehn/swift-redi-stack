@@ -199,13 +199,13 @@ extension RedisClient {
     }
     
     @inlinable
-    public func xrange<Value: RESPDecodable>(
+    public func xrange(
         _ key: String,
         start: String,
         end: String,
         count: Int? = nil,
         reverse: Bool = false
-    ) -> EventLoopFuture<Value> {
+    ) -> EventLoopFuture<[RedisStreamEntry]> {
         var args: [RESPValue] = [
             .init(bulk: key),
             .init(bulk: start),
@@ -220,17 +220,17 @@ extension RedisClient {
         let command = reverse ? "XREVRANGE" : "XRANGE"
         
         return send(command: command, with: args)
-            .flatMapThrowing(Value.decode)
+            .flatMapThrowing([RedisStreamEntry].decode)
     }
     
     @inlinable
-    public func xrevrange<Value: RESPDecodable>(
+    public func xrevrange(
         _ key: String,
         start: String,
         end: String,
         count: Int? = nil,
         reverse: Bool = false
-    ) -> EventLoopFuture<Value> {
+    ) -> EventLoopFuture<[RedisStreamEntry]> {
         return xrange(key, start: start, end: end, count: count, reverse: true)
     }
     
@@ -274,13 +274,13 @@ extension RedisClient {
     
     // @TODO: we want a simplified variant that takes one stream key and one offset instead of a dicationary
     @inlinable
-    public func xreadgroup<Value: RESPDecodable>(
+    public func xreadgroup(
         group: String,
         consumer: String,
         from streamPositions: [(String, String)],
         maxCount count: Int? = nil,
         blockFor milliseconds: Int? = nil
-    ) -> EventLoopFuture<Value> {
+    ) -> EventLoopFuture<RedisXREADResponse> {
         var args: [RESPValue] = [
             .init(bulk: "GROUP"),
             .init(bulk: group),
@@ -310,7 +310,7 @@ extension RedisClient {
         }
         
         return send(command: "XREADGROUP", with: args)
-            .flatMapThrowing(Value.decode)
+            .flatMapThrowing(RedisXREADResponse.decode)
     }
     
     @inlinable

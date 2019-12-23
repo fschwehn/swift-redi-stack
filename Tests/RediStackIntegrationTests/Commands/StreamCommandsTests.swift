@@ -235,7 +235,7 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         _ = try connection.xgroupCreate(stream, group: group0).wait()
         _ = try connection.xgroupCreate(stream, group: group1).wait()
         
-        let _: RESPValue = try connection.xreadgroup(group: group0, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
+        _ = try connection.xreadgroup(group: group0, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
 
         let infos: [RedisGroupInfo] = try connection.xinfoGroups(stream).wait()
 
@@ -268,8 +268,8 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         
         _ = try connection.xgroupCreate(stream, group: group).wait()
 
-        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
-        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")]).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 1).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")]).wait()
 
         let infos = try connection.xinfoConsumers(stream, group: group).wait()
         
@@ -302,8 +302,8 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
 
         XCTAssertNil(try connection.xpending(stream, group: group).wait())
         
-        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 2).wait()
-        let _: RESPValue = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")], maxCount: 1).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer0, from: [(stream, ">")], maxCount: 2).wait()
+        _ = try connection.xreadgroup(group: group, consumer: consumer1, from: [(stream, ">")], maxCount: 1).wait()
         
         let res: RedisXPendingSimpleResponse! = try connection.xpending(stream, group: group).wait()
         
