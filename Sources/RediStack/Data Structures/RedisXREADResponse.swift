@@ -16,7 +16,7 @@ public struct RedisXREADResponse {
     
     internal var storage = [String : [RedisStreamEntry]]()
     
-    subscript(key: String) -> [RedisStreamEntry]? {
+    public subscript(key: String) -> [RedisStreamEntry]? {
         get {
             return storage[key]
         }

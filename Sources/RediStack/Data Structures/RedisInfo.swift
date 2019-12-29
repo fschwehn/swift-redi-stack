@@ -49,10 +49,10 @@ extension RedisStreamInfo: RESPDecodable {
 extension RedisStreamInfo: Equatable {}
 
 public struct RedisGroupInfo {
-    let name: String
-    let consumers: Int
-    let pending: Int
-    let lastDeliveredId: String
+    public let name: String
+    public let consumers: Int
+    public let pending: Int
+    public let lastDeliveredId: String
 }
 
 extension RedisGroupInfo: Equatable {}
