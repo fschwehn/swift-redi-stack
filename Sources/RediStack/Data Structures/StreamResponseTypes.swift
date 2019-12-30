@@ -66,10 +66,10 @@ extension RedisXPendingSimpleResponse: RESPDecodableToOptional {
 }
 
 public struct RedisXPendingEntryInfo {
-    let id: String
-    let consumer: String
-    let millisecondsSinceLastDelivered: Int
-    let deliveryCount: Int
+    public let id: String
+    public let consumer: String
+    public let millisecondsSinceLastDelivered: Int
+    public let deliveryCount: Int
 }
 
 extension RedisXPendingEntryInfo: RESPDecodable {

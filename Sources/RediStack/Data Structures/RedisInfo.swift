@@ -14,13 +14,13 @@
 
 
 public struct RedisStreamInfo {
-    let length: Int
-    let radixTreeKeys: Int
-    let radixTreeNodes: Int
-    let groups: Int
-    let lastGeneratedId: String
-    let firstEntry: RedisStreamEntry
-    let lastEntry: RedisStreamEntry
+    public let length: Int
+    public let radixTreeKeys: Int
+    public let radixTreeNodes: Int
+    public let groups: Int
+    public let lastGeneratedId: String
+    public let firstEntry: RedisStreamEntry
+    public let lastEntry: RedisStreamEntry
 }
 
 extension RedisStreamInfo: RESPDecodable {
@@ -78,9 +78,9 @@ extension RedisGroupInfo: RESPDecodable {
 }
 
 public struct RedisConsumerInfo {
-    let name: String
-    let pending: Int
-    let idle: Int
+    public let name: String
+    public let pending: Int
+    public let idle: Int
 }
 
 extension RedisConsumerInfo: RESPDecodable {
