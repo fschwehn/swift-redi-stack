@@ -66,6 +66,10 @@ extension RedisClient {
         force: Bool = false,
         justId: Bool = false
     ) -> EventLoopFuture<[RedisStreamEntry]> {
+        if ids.isEmpty {
+            return eventLoop.makeSucceededFuture([])
+        }
+        
         var args = [RESPValue]()
         
         args.reserveCapacity(ids.count + 14)
