@@ -253,14 +253,18 @@ extension RedisClient {
     }
     
     @inlinable
-    public func xpending(_ key: String, group: String, smallestId: String, greatestId: String, count: Int) -> EventLoopFuture<[RedisXPendingEntryInfo]> {
-        let args: [RESPValue] = [
+    public func xpending(_ key: String, group: String, smallestId: String, greatestId: String, count: Int, consumer: String? = nil) -> EventLoopFuture<[RedisXPendingEntryInfo]> {
+        var args: [RESPValue] = [
             .init(bulk: key),
             .init(bulk: group),
             .init(bulk: smallestId),
             .init(bulk: greatestId),
             .init(bulk: count),
         ]
+        
+        if let consumer = consumer {
+            args.append(.init(bulk: consumer))
+        }
         
         return send(command: "XPENDING", with: args)
             .decodeFromRESPValue()

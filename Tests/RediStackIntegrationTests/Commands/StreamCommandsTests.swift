@@ -326,19 +326,27 @@ final class StreamCommandsTests: RediStackIntegrationTestCase {
         XCTAssertTrue(res1.consumers.contains(.init(name: consumer0, pending: 2)))
         XCTAssertTrue(res1.consumers.contains(.init(name: consumer1, pending: 1)))
         
-        // extended form
-        let infos = try connection.xpending(stream, group: group, smallestId: "-", greatestId: "+", count: 100).wait()
-        XCTAssertEqual(infos.count, 3)
+        // extended form without specific consumer
+        let infos_c0_c1 = try connection.xpending(stream, group: group, smallestId: "-", greatestId: "+", count: 100).wait()
+        XCTAssertEqual(infos_c0_c1.count, 3)
         
-        XCTAssertTrue(infos.contains(where: {
+        XCTAssertTrue(infos_c0_c1.contains(where: {
             $0.id == "0-1" && $0.consumer == consumer0 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
         }))
         
-        XCTAssertTrue(infos.contains(where: {
+        XCTAssertTrue(infos_c0_c1.contains(where: {
             $0.id == "0-2" && $0.consumer == consumer0 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
         }))
         
-        XCTAssertTrue(infos.contains(where: {
+        XCTAssertTrue(infos_c0_c1.contains(where: {
+            $0.id == "0-3" && $0.consumer == consumer1 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
+        }))
+        
+        // extended form with specific consumer
+        let infos_c1 = try connection.xpending(stream, group: group, smallestId: "-", greatestId: "+", count: 100, consumer: consumer1).wait()
+        XCTAssertEqual(infos_c1.count, 1)
+        
+        XCTAssertTrue(infos_c1.contains(where: {
             $0.id == "0-3" && $0.consumer == consumer1 && $0.millisecondsSinceLastDelivered >= 0 && $0.deliveryCount == 1
         }))
     }
