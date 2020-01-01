@@ -19,8 +19,8 @@ public struct RedisStreamInfo {
     public let radixTreeNodes: Int
     public let groups: Int
     public let lastGeneratedId: String
-    public let firstEntry: RedisStreamEntry
-    public let lastEntry: RedisStreamEntry
+    public let firstEntry: RedisStreamEntry?
+    public let lastEntry: RedisStreamEntry?
 }
 
 extension RedisStreamInfo: RESPDecodable {
