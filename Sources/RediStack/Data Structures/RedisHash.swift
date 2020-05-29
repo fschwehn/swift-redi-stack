@@ -17,18 +17,22 @@ public struct RedisHash: ExpressibleByDictionaryLiteral {
     
     internal var storage = [String : String]()
     
-    public init(dictionaryLiteral elements: (String, CustomStringConvertible)...) {
+    public init(dictionaryLiteral elements: (String, LosslessStringConvertible)...) {
         for element in elements {
             storage[element.0] = element.1.description
         }
     }
     
-    public subscript(key: String) -> String? {
+    public subscript<Value>(key: String) -> Value? where Value: LosslessStringConvertible {
         get {
-            return storage[key]
+            guard let stringValue = storage[key] else {
+                return nil
+            }
+            
+            return Value(stringValue)
         }
         set(newValue) {
-            storage[key] = newValue
+            storage[key] = newValue?.description
         }
     }
     
