@@ -13,8 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 public struct RedisXREADResponse {
+    public typealias Storage = [String : [RedisStreamEntry]]
     
-    internal var storage = [String : [RedisStreamEntry]]()
+    public var storage = Storage()
     
     public subscript(key: String) -> [RedisStreamEntry]? {
         get {
@@ -25,6 +26,12 @@ public struct RedisXREADResponse {
         }
     }
     
+}
+
+extension RedisXREADResponse: Sequence {
+    public func makeIterator() -> Storage.Iterator {
+        storage.makeIterator()
+    }
 }
 
 extension RedisXREADResponse: ExpressibleByDictionaryLiteral {
