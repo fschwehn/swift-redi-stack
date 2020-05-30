@@ -20,7 +20,7 @@
 /// to a `RESPValueConvertible` instance should be short lived for that purpose.
 ///
 /// See `RESPValue`.
-public protocol RESPValueConvertible {
+public protocol RESPValueConvertible: RESPDecodable {
     /// Attempts to create a new instance of the conforming type based on the value represented by the `RESPValue`.
     /// - Parameter value: The `RESPValue` representation to attempt to initialize from.
     init?(fromRESP value: RESPValue)
@@ -28,6 +28,44 @@ public protocol RESPValueConvertible {
     /// Creates a `RESPValue` representation of the conforming type's value.
     func convertedToRESPValue() -> RESPValue
 }
+
+extension RESPValueConvertible {
+
+    public static func decode(_ value: RESPValue) throws -> Self {
+        guard let decoded = Self.init(fromRESP: value) else {
+            throw RESPDecodingError.typeMismatch(expectedType: Self.self, value: value)
+        }
+        return decoded
+    }
+
+}
+
+//extension RESPValue: RESPValueConvertible {
+//    /// See `RESPValueConvertible.init(fromRESP:)`
+//    public init?(fromRESP value: RESPValue) {
+//        self = value
+//    }
+//
+//    /// See `RESPValueConvertible.convertedToRESPValue()`
+//    public func convertedToRESPValue() -> RESPValue {
+//        return self
+//    }
+//}
+
+//extension RedisError: RESPValueConvertible {
+//    /// Unwraps an `.error` representation directly into a `RedisError` instance.
+//    ///
+//    /// See `RESPValueConvertible.init(fromRESP:)`
+//    public init?(fromRESP value: RESPValue) {
+//        guard case let .error(e) = value else { return nil }
+//        self = e
+//    }
+//
+//    /// See `RESPValueConvertible.convertedToRESPValue()`
+//    public func convertedToRESPValue() -> RESPValue {
+//        return .error(self)
+//    }
+//}
 
 extension String: RESPValueConvertible {
     /// Attempts to provide a UTF-8 representation of the `RESPValue` provided.
@@ -166,6 +204,19 @@ extension Array where Element == UInt8 {
         default: return nil
         }
     }
+}
+
+extension Optional: RESPDecodable where Wrapped: RESPDecodable {
+    
+    public static func decode(_ value: RESPValue) throws -> Optional<Wrapped> {
+        switch value {
+        case .null:
+            return nil
+        default:
+            return try Wrapped.decode(value)
+        }
+    }
+    
 }
 
 extension Optional: RESPValueConvertible where Wrapped: RESPValueConvertible {
